@@ -1,0 +1,147 @@
+---
+title: "projekt - wizualizacja danych"
+author: "Monika Etrych"
+date: "18 01 2022"
+output: html_document
+---
+Projekt wykonany w ramach zaliczenia przedmiotu "Wstęp do Analizy Danych".    
+  
+```{r message=FALSE, include=FALSE}
+# Wczytanie danych i zmiana nazw kolumn
+
+library(dplyr)
+library(ggplot2)
+library(CGPfunctions)
+library(datasets)
+library(gridExtra)
+library(gapminder)
+library(gghighlight)
+
+setwd("C:/Users/monik/Desktop/3 semestr/Wstęp/samobojstwa")
+
+dane = read.csv(file="dane ludzi.csv", header = TRUE, sep=";")
+metoda = read.csv(file="metoda.csv", header = TRUE, sep = ";")
+wiek = read.csv(file="wiek.csv", header = T, sep=";")
+
+names(metoda) [3:15]=c("zatrucie gazem/spalinami", "zatrucie środkami chemicznymi/toksycznymi",
+                       "zażycie środków nasennych/leków psychotropowych", "zażycie innych leków",
+                       "uszkodzenie układu krwionośnego", "samookaleczenie powierzchniowe", 
+                       "rzucenie się z wysokości", "utonięcie/utopienie się","powieszenie się",
+                       "rzucenie się pod pojazd", "zastrzelenie się/użycie broni palnej",
+                       "uduszenie się", "samopodpalenie")
+names(metoda)[18:30]=c("zgon zatrucie gazem/spalinami", "zgon zatrucie środkami chemicznymi/toksycznymi",
+                       "zgon zażycie środków nasennych/leków psychotropowych", "zgon zażycie innych leków",
+                       "zgon uszkodzenie układu krwionośnego", "zgon samookaleczenie powierzchniowe", 
+                       "zgon rzucenie się z wysokości", "zgon utonięcie/utopienie się","zgon powieszenie się",
+                       "zgon rzucenie się pod pojazd", "zgon zastrzelenie się/użycie broni palnej",
+                       "zgon uduszenie się", "zgon samopodpalenie")
+names(metoda)[2]="ogółem"
+names(dane)[2:4]=c("ogółem","mężczyźni","kobiety")
+names(dane)[8:9]=c("zgon mężczyźni", "zgon kobiety")
+```
+
+# Wykres 1
+W jakim wieku ludzie najczęściej próbują popełnić samobójstwo?
+
+
+```{r fig.height=4, fig.width=5}
+names(wiek)[3:9]=c("<=12","13-18","19-24","25-29","30-49","50-69","70=>")
+kolumny = colnames(wiek[3:9])
+
+wiek_wektor = unlist(wiek[1,3:9])
+
+ggplot(wiek[3:9,], aes(kolumny, wiek_wektor))+
+  geom_bar(stat="identity", colour="black", fill="grey")+
+  labs(x="wiek", y="liczba", title="Liczba prób samobójczych w grupach wiekowych")
+
+```
+
+Najwięcej osób próbujących się zabić jest w przedziale wiekowym 30-49 lat, a następnie 50-69. Najmniej jest w wieku poniżej 12 lat. 
+
+# Wykres 2 i 3
+2. Jaka jest najskuteczniejsza metoda?  
+3. Która metoda jest najczęściej stosowana?
+```{r message=FALSE, warning=FALSE}
+ogolem = colnames(metoda[3:15])
+smierc = colnames(metoda[18:30])
+
+ogolem_wektor = unlist(metoda[1,3:15]) 
+smierc_wektor = unlist(metoda[1,18:30])
+
+skutecznosc = smierc_wektor/ogolem_wektor*100
+skutecznosc = round(skutecznosc, 3)
+
+
+p1 = ggplot(metoda[3:15, 18:30,], aes(skutecznosc,reorder(ogolem, skutecznosc)))+
+    geom_col(colour="black", fill="grey")+
+    xlim(0,100)+
+    labs(x="procent samobójstw zakończonych śmiercią[%]", y="metoda", title="Skuteczność wybranej metody samobójczej")
+
+# wykres 3
+
+metoda_ogolem = unlist(metoda[1,3:15]) 
+
+czestosc_metody=metoda_ogolem/metoda[1,2]*100
+
+p2 = ggplot(metoda[3:15,], aes(czestosc_metody,reorder(ogolem, czestosc_metody)))+
+      geom_col(colour="black", fill="grey")+
+      labs(x="procent samobójstw dokonanych wybraną metodą[%]", y="metoda", title="Częstość używanej metody samobójczej")+
+      xlim(0,100)
+
+grid.arrange(p1, p2, nrow = 2)
+```
+
+Chociaż najskuteczniejszą metodą jest użycie broni, to pamiętając, że w Polsce trudno jest uzyskać pozwolenie na broń, jest to rzadko stosowana. Najczęściej stosowaną metodą jest powieszenie, które jest drugą metodą pod względem skuteczności.
+
+
+# Wykres 4 i 5  
+4. Kto częściej popełnia samobójstwo kobiety czy mężczyźni?
+5. Kto skuteczniej popełnia samobójstwa, kobiety czy mężczyźni?
+
+```{r fig.height=4, fig.width=4, message=FALSE}
+czestosc_kobiety=dane[1,]$kobiety/dane[1,]$ogółem*100
+czestosc_mezczyzni = 100-czestosc_kobiety
+
+plec = data.frame(
+  płeć=c("kobieta", "mężczyzna"),
+  czestosc=c(czestosc_kobiety, czestosc_mezczyzni))
+
+p1 = ggplot(plec, aes(x="", y=czestosc, fill=płeć)) +
+    geom_bar(stat="identity", width=1) +
+    coord_polar("y", start=0)+
+    theme_void()+
+    labs(title="Próby samobójcze z podziałem na płeć")
+
+# wykres 5
+
+skutecznosc=data.frame(name=c("kobiety","mężczyźni"), 
+                       val=c(dane[1,]$`zgon kobiety`/dane[1,]$kobiety*100,
+                         dane[1,]$`zgon mężczyźni`/dane[1,]$mężczyźni*100))
+p2 = skutecznosc %>%
+    ggplot(aes(x=name, y=val)) +
+    geom_segment(aes(xend=name, yend=0))+
+    geom_point(size=4, color="orange") +
+    labs(x="płeć", y="skuteczność[%]", title="Skuteczność samobójstw wsród mężczyzn i kobiet")+
+    ylim(0,100)
+
+grid.arrange(p1, p2, nrow = 2)
+```
+
+W trakcie tworzenia projektu natrafiłam na informacje, że mężczyźni częściej próbują popełnić samobójstwa, ale kobiety robią, to skuteczniej. Postanowiłam to zbadać. Z danych wynika, że mężczyźni 3-krotnie częściej niż kobiety próbowali się zabić i 2 razy częściej umierali. Teza okazała się fałszywa.
+
+# Wykres 6
+Odsetek samobójstw w danym województwie
+```{r}
+dane%>%
+  select(Województwo, ogółem, liczba.ludności)%>%
+  mutate(smiertelnosc=ogółem/liczba.ludności*100)%>%
+  #filter(Województwo!="POLSKA")%>%
+  ggplot(aes(x=smiertelnosc, y=reorder(Województwo, smiertelnosc)))+
+  geom_point(size=4, col="red")+
+  labs(y="województwo", x="śmiertelność[%]", title="Procent samobójstw w danym województwie")+
+  gghighlight(Województwo == "POLSKA")+
+  xlim(0,0.075)
+
+```
+
+Proporcjonalnie do liczby ludności w danym województwie najwięcej osób w województwie łódzkim próbowało popełnić samobójstwo. Najmniej w kujawsko-pomorskim. W województwie małopolskim było więcej samobójstw niż średnia dla Polski.
